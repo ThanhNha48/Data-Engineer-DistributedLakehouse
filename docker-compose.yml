@@ -1,0 +1,200 @@
+version: "3.9"
+
+services:
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: admin123
+    volumes:
+      - minio_data:/data
+    networks:
+      - lakehouse
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  nessie:
+    image: projectnessie/nessie:latest
+    container_name: nessie
+    ports:
+      - "19120:19120"
+    environment:
+      NESSIE_VERSION_STORE_TYPE: ROCKSDB
+      NESSIE_ROCKSDB_PATH: /var/lib/nessie
+    volumes:
+      - nessie_data:/var/lib/nessie
+    networks:
+      - lakehouse
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:19120/api/v1/trees"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  trino:
+    image: trinodb/trino:latest
+    container_name: trino-coordinator
+    hostname: trino-coordinator
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./trino/etc/catalog:/etc/trino/catalog:ro
+    depends_on:
+      minio:
+        condition: service_healthy
+      nessie:
+        condition: service_healthy
+    networks:
+      - lakehouse
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/v1/info"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+    environment:
+      - JAVA_TOOL_OPTIONS=-Xmx4G
+
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    environment:
+      POSTGRES_DB: airflow
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow  
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow"]
+      interval: 10s
+      retries: 5
+    networks:
+      - lakehouse
+
+  airflow-init:
+    image: apache/airflow:2.10.0-python3.10
+    container_name: airflow-init
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      _AIRFLOW_DB_MIGRATE: "true"
+      _AIRFLOW_WWW_USER_CREATE: "true"
+      _AIRFLOW_WWW_USER_USERNAME: admin
+      _AIRFLOW_WWW_USER_PASSWORD: admin
+      _AIRFLOW_WWW_USER_FIRSTNAME: Admin
+      _AIRFLOW_WWW_USER_LASTNAME: User
+      _AIRFLOW_WWW_USER_EMAIL: admin@example.com
+      _AIRFLOW_WWW_USER_ROLE: Admin
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+    entrypoint: /bin/bash
+    command: -c "airflow db init && airflow users create --role Admin --username admin --password admin --firstname Admin --lastname User --email admin@example.com"
+    restart: on-failure
+    networks:
+      - lakehouse
+
+  airflow-webserver:
+    build: .
+    image: apache/airflow:2.10.0-python3.10
+    container_name: airflow-webserver
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    ports:
+      - "8082:8080"
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+      - ./ecommerce_dbt:/opt/airflow/ecommerce_dbt
+      - ./airflow/spark_jobs:/opt/spark_jobs
+    command: airflow webserver
+    restart: unless-stopped 
+    networks:
+      - lakehouse
+
+  airflow-scheduler:
+    build: .
+    image: apache/airflow:2.10.0-python3.10
+    container_name: airflow-scheduler
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+      - ./ecommerce_dbt:/opt/airflow/ecommerce_dbt
+      - ./airflow/spark_jobs:/opt/spark_jobs
+    command: >
+      airflow scheduler
+    restart: unless-stopped
+    networks:
+      - lakehouse
+
+  spark-master:
+    image: apache/spark:3.5.1
+    container_name: spark-master-1
+    volumes:
+      - ./airflow/spark_jobs:/opt/spark_jobs
+      - ./ivy-cache:/home/spark/.ivy2
+    command: >
+      /opt/spark/bin/spark-class
+      org.apache.spark.deploy.master.Master
+    ports:
+      - "8083:8080"
+      - "7077:7077"
+    networks:
+      - lakehouse
+    restart: unless-stopped
+
+  spark-worker:
+    image: apache/spark:3.5.1
+    container_name: spark-worker-1
+    volumes:
+      - ./airflow/spark_jobs:/opt/spark_jobs
+      - ./ivy-cache:/home/spark/.ivy2
+    command: >
+      /opt/spark/bin/spark-class
+      org.apache.spark.deploy.worker.Worker
+      spark://spark-master:7077
+    depends_on:
+      - spark-master
+    ports:
+      - "8084:8081"
+    environment:
+      SPARK_WORKER_MEMORY: 1g
+      SPARK_WORKER_CORES: 2
+    networks:
+      - lakehouse
+    restart: unless-stopped
+
+
+
+networks:
+  lakehouse:
+    driver: bridge
+
+volumes:
+  minio_data:
+  nessie_data:
+  postgres_data:

@@ -1,0 +1,18 @@
+# requirements.txt
+# Airflow providers (PHÙ HỢP Airflow 2.10)
+apache-airflow-providers-postgres==5.11.0
+apache-airflow-providers-http==4.10.0
+
+# Trino
+trino==0.328.0
+sqlalchemy==1.4.53
+
+# dbt (TƯƠNG THÍCH NHAU)
+dbt-core==1.7.9
+dbt-trino==1.7.1
+
+# Data
+pandas
+pyarrow
+boto3
+requests

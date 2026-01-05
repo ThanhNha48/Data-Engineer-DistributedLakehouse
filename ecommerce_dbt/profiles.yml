@@ -1,0 +1,47 @@
+# profiles.yml
+ecommerce_dbt:
+  target: dev
+  outputs:
+    dev:
+      type: trino
+      method: none
+      user: user
+      host: trino-coordinator
+      port: 8080
+      http_scheme: http
+      catalog: iceberg
+      schema: bronze 
+      threads: 4
+
+    bronze:
+      type: trino
+      method: none
+      user: user
+      host: trino-coordinator
+      port: 8080
+      http_scheme: http
+      catalog: iceberg
+      schema: bronze
+      threads: 4
+
+    silver:
+      type: trino
+      method: none
+      user: user
+      host: trino-coordinator
+      port: 8080
+      http_scheme: http
+      catalog: iceberg
+      schema: silver
+      threads: 4
+
+    gold:
+      type: trino
+      method: none
+      user: user
+      host: trino-coordinator
+      port: 8080
+      http_scheme: http
+      catalog: iceberg
+      schema: gold
+      threads: 4

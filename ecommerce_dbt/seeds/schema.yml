@@ -1,0 +1,50 @@
+version: 2
+
+seeds:
+  - name: olist_customers_dataset
+    tags: ["bronze"]
+    config:
+      schema: bronze
+      column_types:
+        customer_zip_code_prefix: varchar(20)
+
+  - name: olist_orders_dataset
+    tags: ["bronze"]
+    config:
+      schema: bronze
+
+  - name: olist_order_items_dataset
+    tags: ["bronze"]
+    config:
+      schema: bronze
+
+  # Lặp lại cho các file còn lại (thêm tags và schema nếu cần)
+  - name: olist_order_payments_dataset
+    tags: ["bronze"]
+    config:
+      schema: bronze
+
+  - name: olist_order_reviews_dataset
+    tags: ["bronze"]
+    config:
+      schema: bronze
+
+  - name: olist_products_dataset
+    tags: ["bronze"]
+    config:
+      schema: bronze
+
+  - name: olist_sellers_dataset
+    tags: ["bronze"]
+    config:
+      schema: bronze
+
+  - name: olist_geolocation_dataset
+    tags: ["bronze"]
+    config:
+      schema: bronze
+
+  - name: product_category_name_translation
+    tags: ["bronze"]
+    config:
+      schema: bronze

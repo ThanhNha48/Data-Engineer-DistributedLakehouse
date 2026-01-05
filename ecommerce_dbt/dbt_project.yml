@@ -1,0 +1,34 @@
+# dbt_project.yml
+name: 'ecommerce_dbt'
+version: '1.0.0'
+config-version: 2
+
+profile: 'ecommerce_dbt'  # giữ nguyên, đã đúng
+
+# Config chung cho tất cả models
+models:
+  ecommerce_dbt:
+    # Config áp dụng cho toàn bộ project
+    +materialized: table
+    +enabled: true
+
+    # Config theo layer (thư mục con trong models/)
+    bronze:
+      +schema: bronze
+      +tags: ["bronze"]        # dùng "tags" (số nhiều) để add nhiều tag nếu cần
+    silver:
+      +schema: silver
+      +tags: ["silver"]
+    gold:
+      +schema: gold
+      +tags: ["gold"]
+
+# (Tùy chọn) Config cho seed
+seeds:
+  ecommerce_dbt:  
+    +schema: seeds
+
+# (Tùy chọn) Config cho snapshot nếu có
+snapshots:
+  ecommerce_dbt:
+    +target_schema: snapshots
