@@ -1,7 +1,8 @@
 {{ config(materialized='table', schema='gold') }}
 
 SELECT 
-    o.order_id,                          -- PK
+    {{ dbt_utils.generate_surrogate_key(['o.order_id', 'o.product_id']) }} AS sales_key,-- PK
+    o.order_id,                          
     o.product_id, 
     o.customer_unique_id AS customer_id,
     o.seller_id,
