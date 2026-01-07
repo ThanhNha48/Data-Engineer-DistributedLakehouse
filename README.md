@@ -78,8 +78,8 @@ Make sure the following tools are installed:
 ### 2️⃣ Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/modern-ecommerce-data-lakehouse.git
-cd modern-ecommerce-data-lakehouse
+git clone https://github.com/your-username/Data-Engineer-DistributedLakehouse.git
+cd Data-Engineer-DistributedLakehouse
 ```
 
 ---
